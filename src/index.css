@@ -1,0 +1,64 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --sidebar-width: 220px;
+    --header-height: 56px;
+    --radius: 8px;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    @apply bg-gray-950 text-gray-100 font-sans antialiased;
+    font-size: 14px;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { @apply bg-transparent; }
+  ::-webkit-scrollbar-thumb { @apply bg-gray-700 rounded-full; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-gray-500; }
+}
+
+@layer components {
+  /* Status badges */
+  .badge-draft    { @apply bg-gray-800 text-gray-400 border border-gray-700; }
+  .badge-waiting  { @apply bg-amber-950 text-amber-400 border border-amber-800; }
+  .badge-ready    { @apply bg-blue-950 text-blue-400 border border-blue-800; }
+  .badge-done     { @apply bg-emerald-950 text-emerald-400 border border-emerald-800; }
+  .badge-canceled { @apply bg-red-950 text-red-400 border border-red-800; }
+
+  /* Table */
+  .table-row-hover { @apply hover:bg-gray-900/60 cursor-pointer transition-colors duration-100; }
+
+  /* Input base */
+  .input-base {
+    @apply w-full bg-gray-900 border border-gray-800 rounded-lg px-3 py-2
+           text-gray-100 placeholder-gray-600
+           focus:outline-none focus:ring-1 focus:ring-brand-500 focus:border-brand-500
+           transition-colors duration-150 text-sm;
+  }
+
+  /* Card */
+  .card {
+    @apply bg-gray-900 border border-gray-800 rounded-xl;
+  }
+
+  /* Page header */
+  .page-title { @apply text-xl font-semibold text-gray-100 tracking-tight; }
+
+  /* Sidebar nav item */
+  .nav-item {
+    @apply flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium
+           text-gray-400 hover:text-gray-100 hover:bg-gray-800
+           transition-all duration-150 cursor-pointer;
+  }
+  .nav-item.active {
+    @apply text-gray-100 bg-gray-800;
+  }
+}
