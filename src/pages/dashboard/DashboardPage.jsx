@@ -29,6 +29,10 @@ export default function DashboardPage() {
   const [kpis, setKpis] = useState({ total: 0, lowStock: 0, outOfStock: 0, pendingReceipts: 0, pendingDeliveries: 0 })
   const [recent, setRecent] = useState([])
   const [loading, setLoading] = useState(true)
+  const [aiQuestion, setAiQuestion] = useState('Give me top stock risks and what to reorder first.')
+  const [aiAnswer, setAiAnswer] = useState('')
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiError, setAiError] = useState('')
 
   useEffect(() => {
     const load = async () => {
@@ -45,6 +49,19 @@ export default function DashboardPage() {
     }
     load()
   }, [])
+
+  const askInventoryAI = async () => {
+    setAiLoading(true)
+    setAiError('')
+    try {
+      const { answer } = await api.post('/ai/inventory-insights', { question: aiQuestion })
+      setAiAnswer(answer || '')
+    } catch (err) {
+      setAiError(err.message || 'Failed to get AI insights')
+    } finally {
+      setAiLoading(false)
+    }
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -109,6 +126,40 @@ export default function DashboardPage() {
             onRowClick={(row) => navigate(row.type === 'Receipt' ? `/receipts/${row.id}` : `/delivery/${row.id}`)}
             emptyMessage="No operations yet"
           />
+        )}
+      </div>
+
+      {/* AI Assistant */}
+      <div className="card p-4">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <h2 className="text-sm font-medium text-gray-300">AI Inventory Assistant</h2>
+          <button
+            onClick={askInventoryAI}
+            disabled={aiLoading}
+            className="px-3 py-1.5 rounded-lg border border-brand-700 bg-brand-900/40 text-xs text-brand-300
+                       hover:bg-brand-900/60 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {aiLoading ? 'Analyzing...' : 'Ask AI'}
+          </button>
+        </div>
+
+        <textarea
+          value={aiQuestion}
+          onChange={(e) => setAiQuestion(e.target.value)}
+          className="input-base min-h-[78px] resize-y"
+          placeholder="Ask AI about inventory risk, reorder priorities, or stock planning..."
+        />
+
+        {aiError && (
+          <p className="mt-3 text-xs text-red-300 border border-red-900 bg-red-950/40 rounded-lg px-3 py-2">
+            {aiError}
+          </p>
+        )}
+
+        {aiAnswer && (
+          <div className="mt-3 border border-gray-800 bg-gray-950/50 rounded-lg p-3">
+            <p className="text-xs text-gray-200 whitespace-pre-wrap leading-relaxed">{aiAnswer}</p>
+          </div>
         )}
       </div>
     </div>

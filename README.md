@@ -41,6 +41,7 @@ Open http://localhost:5173 → Sign up → Start managing inventory.
 Note:
 - Forgot password now uses email OTP. If `MAIL_*` is not configured, reset codes are logged in the API console for local development.
 - You can use either SMTP (`MAIL_PROVIDER=smtp`) or Resend (`MAIL_PROVIDER=resend`, `RESEND_API_KEY`, `RESEND_FROM`).
+- AI inventory insights are available when `GROQ_API_KEY` is configured in backend `.env`.
 
 ---
 

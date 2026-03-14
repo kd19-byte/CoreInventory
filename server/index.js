@@ -45,6 +45,8 @@ const RESET_JWT_SECRET = process.env.RESET_JWT_SECRET || JWT_SECRET
 const RESET_TOKEN_EXPIRES_IN = process.env.RESET_TOKEN_EXPIRES_IN || '15m'
 const OTP_EXPIRES_MINUTES = Number(process.env.OTP_EXPIRES_MINUTES || 15)
 const OTP_MAX_ATTEMPTS = Number(process.env.OTP_MAX_ATTEMPTS || 5)
+const GROQ_API_KEY = process.env.GROQ_API_KEY || ''
+const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile'
 const MAIL_PROVIDER = String(process.env.MAIL_PROVIDER || 'smtp').toLowerCase()
 const RESEND_API_KEY = process.env.RESEND_API_KEY || ''
 const RESEND_FROM = process.env.RESEND_FROM || process.env.MAIL_FROM || ''
@@ -76,6 +78,7 @@ const signAccessToken = (user) =>
 
 async function sendPasswordResetEmail(email, code) {
   const text = `Your CoreInventory reset code is ${code}. It expires in ${OTP_EXPIRES_MINUTES} minutes.`
+  const subject = `CoreInventory reset code: ${code}`
   const html = `
     <div style="font-family:Arial,sans-serif;font-size:14px;color:#111827">
       <p>Your CoreInventory reset code is:</p>
@@ -99,7 +102,7 @@ async function sendPasswordResetEmail(email, code) {
         body: JSON.stringify({
           from: RESEND_FROM,
           to: [email],
-          subject: 'CoreInventory password reset code',
+          subject,
           text,
           html,
         }),
@@ -128,7 +131,7 @@ async function sendPasswordResetEmail(email, code) {
     await transporter.sendMail({
       from,
       to: email,
-      subject: 'CoreInventory password reset code',
+      subject,
       text,
       html,
     })
@@ -405,6 +408,79 @@ app.post('/api/auth/users', requireAuth, requireRole('manager'), async (req, res
 })
 
 app.use('/api', requireAuth)
+
+// ─── AI Insights ─────────────────────────────────────────────
+app.post('/api/ai/inventory-insights', async (req, res) => {
+  try {
+    if (!GROQ_API_KEY) return fail(res, 503, 'AI service is not configured')
+
+    const question = String(req.body?.question || '').trim() || 'Give me inventory health insights and action items.'
+
+    const [rows] = await pool.query(`
+      SELECT p.name, p.sku, p.category, p.low_stock_threshold, COALESCE(SUM(sl.qty), 0) AS current_stock
+      FROM products p
+      LEFT JOIN stock_ledger sl ON sl.product_id = p.id
+      GROUP BY p.id
+      ORDER BY p.name
+    `)
+
+    const products = rows.map((r) => ({
+      name: r.name,
+      sku: r.sku,
+      category: r.category,
+      low_stock_threshold: Number(r.low_stock_threshold ?? 0),
+      current_stock: Number(r.current_stock ?? 0),
+    }))
+
+    const lowStock = products.filter((p) => p.low_stock_threshold > 0 && p.current_stock <= p.low_stock_threshold)
+    const outOfStock = products.filter((p) => p.current_stock === 0)
+
+    const payload = {
+      total_products: products.length,
+      low_stock_count: lowStock.length,
+      out_of_stock_count: outOfStock.length,
+      low_stock_products: lowStock.slice(0, 25),
+      out_of_stock_products: outOfStock.slice(0, 25),
+      sample_products: products.slice(0, 100),
+    }
+
+    const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${GROQ_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: GROQ_MODEL,
+        temperature: 0.3,
+        messages: [
+          {
+            role: 'system',
+            content:
+              'You are an inventory operations copilot. Give concise, practical recommendations with priorities. Mention reorder, stock risk, and operational next steps.',
+          },
+          {
+            role: 'user',
+            content: `User role: ${req.user.role}. Question: ${question}\n\nInventory data:\n${JSON.stringify(payload)}`,
+          },
+        ],
+      }),
+    })
+
+    const groqData = await groqRes.json()
+    if (!groqRes.ok) {
+      const message = groqData?.error?.message || 'AI provider error'
+      return fail(res, 502, message)
+    }
+
+    const answer = groqData?.choices?.[0]?.message?.content?.trim()
+    if (!answer) return fail(res, 502, 'AI response was empty')
+
+    return ok(res, { answer })
+  } catch (err) {
+    return fail(res, 500, err.message)
+  }
+})
 
 // ─── Warehouses ──────────────────────────────────────────────
 app.get('/api/warehouses', async (_req, res) => {
