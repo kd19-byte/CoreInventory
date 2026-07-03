@@ -8,22 +8,18 @@ import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 
 function stockBadge(product) {
+  if (product.smart_risk_level === 'critical')
+    return <Badge className="bg-red-950 text-red-300 border border-red-800">Smart Risk: Critical</Badge>
+  if (product.smart_risk_level === 'warning')
+    return <Badge className="bg-amber-950 text-amber-300 border border-amber-800">Smart Risk: Warning</Badge>
+  if (product.is_dead_stock)
+    return <Badge className="bg-orange-950 text-orange-300 border border-orange-800">Dead Stock</Badge>
   if (product.current_stock === 0)
     return <Badge className="badge-canceled">Out of Stock</Badge>
   if (product.low_stock_threshold > 0 && product.current_stock <= product.low_stock_threshold)
     return <Badge className="badge-waiting">Low Stock</Badge>
   return <Badge className="badge-done">In Stock</Badge>
 }
-
-const COLUMNS = [
-  { key: 'name',            label: 'Product' },
-  { key: 'sku',             label: 'SKU',      render: (v) => <span className="font-mono text-xs text-gray-500">{v}</span> },
-  { key: 'category',        label: 'Category'  },
-  { key: 'uom',             label: 'UOM'       },
-  { key: 'current_stock',   label: 'On Hand',  align: 'right', render: (v) => <span className="font-mono">{v ?? 0}</span> },
-  { key: 'low_stock_threshold', label: 'Low Stock', align: 'right', render: (v) => <span className="font-mono text-gray-500">{v ?? 0}</span> },
-  { key: 'status',          label: 'Status',   render: (_, row) => stockBadge(row) },
-]
 
 export default function ProductsPage() {
   const navigate = useNavigate()
@@ -34,8 +30,46 @@ export default function ProductsPage() {
   const [loading, setLoading]   = useState(true)
   const [search, setSearch]     = useState('')
   const [catFilter, setCatFilter] = useState('')
+  const [smartRiskOnly, setSmartRiskOnly] = useState(false)
 
   const filterParam = searchParams.get('filter')
+
+  const columns = [
+    { key: 'name',            label: 'Product' },
+    { key: 'sku',             label: 'SKU',      render: (v) => <span className="font-mono text-xs text-gray-500">{v}</span> },
+    { key: 'category',        label: 'Category'  },
+    { key: 'uom',             label: 'UOM'       },
+    { key: 'current_stock',   label: 'On Hand',  align: 'right', render: (v) => <span className="font-mono">{v ?? 0}</span> },
+    { key: 'low_stock_threshold', label: 'Low Stock', align: 'right', render: (v) => <span className="font-mono text-gray-500">{v ?? 0}</span> },
+    {
+      key: 'smart_days_remaining',
+      label: 'Days Left',
+      align: 'right',
+      render: (v) => <span className="font-mono text-xs">{v == null ? '—' : v}</span>,
+    },
+    { key: 'status', label: 'Status', render: (_, row) => stockBadge(row) },
+    {
+      key: 'smart_action',
+      label: 'Action',
+      render: (_, row) => {
+        if (!(row.smart_risk_level === 'critical' || row.smart_risk_level === 'warning' || row.current_stock === 0)) {
+          return <span className="text-xs text-gray-600">—</span>
+        }
+        return (
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              const qty = Number(row.reorder_qty || 1)
+              navigate(`/receipts/new?product_id=${row.id}&qty=${qty}`)
+            }}
+            className="text-xs px-2 py-1 rounded border border-brand-700 text-brand-300 hover:bg-brand-900/30"
+          >
+            Restock
+          </button>
+        )
+      },
+    },
+  ]
 
   useEffect(() => {
     const load = async () => {
@@ -44,14 +78,32 @@ export default function ProductsPage() {
         const params = new URLSearchParams()
         if (search) params.set('search', search)
         if (catFilter) params.set('category', catFilter)
-        const { data } = await api.get(`/products?${params.toString()}`)
-        let result = data ?? []
+        const [productsRes, riskRes] = await Promise.all([
+          api.get(`/products?${params.toString()}`),
+          api.get('/analytics/stockout-risk'),
+        ])
+        const riskMap = new Map((riskRes?.data ?? []).map((r) => [Number(r.id), r]))
+        let result = (productsRes?.data ?? []).map((p) => {
+          const risk = riskMap.get(Number(p.id))
+          return {
+            ...p,
+            smart_days_remaining: risk?.days_remaining ?? null,
+            smart_risk_level: risk?.risk_level ?? 'unknown',
+          }
+        })
 
         // Apply filter param from dashboard KPI click
         if (filterParam === 'low')
           result = result.filter((p) => p.low_stock_threshold > 0 && p.current_stock <= p.low_stock_threshold)
         else if (filterParam === 'out')
           result = result.filter((p) => p.current_stock === 0)
+        else if (filterParam === 'dead')
+          result = result.filter((p) => p.is_dead_stock)
+        else if (filterParam === 'risk')
+          result = result.filter((p) => p.smart_risk_level === 'critical' || p.smart_risk_level === 'warning')
+
+        if (smartRiskOnly)
+          result = result.filter((p) => p.smart_risk_level === 'critical' || p.smart_risk_level === 'warning')
 
         setProducts(result)
       } catch (err) {
@@ -61,7 +113,7 @@ export default function ProductsPage() {
       }
     }
     load()
-  }, [search, catFilter, filterParam])
+  }, [search, catFilter, filterParam, smartRiskOnly])
 
   return (
     <div className="flex flex-col gap-4">
@@ -87,6 +139,13 @@ export default function ProductsPage() {
         </select>
 
         <div className="ml-auto">
+          <Button
+            variant={smartRiskOnly ? 'primary' : 'secondary'}
+            onClick={() => setSmartRiskOnly((v) => !v)}
+            className="mr-2"
+          >
+            Smart Stock
+          </Button>
           <Button variant="primary" icon={Plus} onClick={() => navigate('/products/new')}>
             New Product
           </Button>
@@ -96,8 +155,8 @@ export default function ProductsPage() {
       {/* Table */}
       <div className="card">
         {loading
-          ? <TableSkeleton cols={7} rows={8} />
-          : <Table columns={COLUMNS} data={products} onRowClick={(r) => navigate(`/products/${r.id}`)} emptyMessage="No products found" />
+          ? <TableSkeleton cols={9} rows={8} />
+          : <Table columns={columns} data={products} onRowClick={(r) => navigate(`/products/${r.id}`)} emptyMessage="No products found" />
         }
       </div>
     </div>

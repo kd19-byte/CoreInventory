@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Plus, Trash2, CheckCircle, Printer, XCircle } from 'lucide-react'
 import { api } from '@/lib/api'
 import { useInventoryStore } from '@/store'
@@ -14,7 +14,9 @@ const STATUS_FLOW = ['draft', 'waiting', 'ready', 'done']
 export default function ReceiptDetailPage() {
   const { id }   = useParams()
   const isNew    = id === 'new'
+  const operationRef = isNew ? '' : decodeURIComponent(id)
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { locations, products, setProducts } = useInventoryStore()
   const toast = useToast()
 
@@ -33,7 +35,7 @@ export default function ReceiptDetailPage() {
     if (isNew) return
     const load = async () => {
       try {
-        const { header, items: loadedItems } = await api.get(`/operations/${id}`)
+        const { header, items: loadedItems } = await api.get(`/operations/${encodeURIComponent(operationRef)}`)
         setReceipt({
           reference: header.ref,
           supplier: header.supplier ?? '',
@@ -49,7 +51,17 @@ export default function ReceiptDetailPage() {
       }
     }
     load()
-  }, [id, isNew])
+  }, [id, isNew, operationRef])
+
+  useEffect(() => {
+    if (!isNew) return
+    const productId = searchParams.get('product_id')
+    const qty = Number(searchParams.get('qty') || 1)
+    const supplier = searchParams.get('supplier') || ''
+    if (!productId) return
+    setItems([{ product_id: productId, qty: Number.isFinite(qty) && qty > 0 ? qty : 1 }])
+    if (supplier) setReceipt((r) => ({ ...r, supplier }))
+  }, [isNew, searchParams])
 
   // ─── Item helpers ────────────────────────────────────────────
   const addItem    = () => setItems((prev) => [...prev, { product_id: '', qty: 1 }])
@@ -72,9 +84,9 @@ export default function ReceiptDetailPage() {
       if (isNew) {
         await api.post('/operations', payload)
         toast.success('Receipt saved')
-        navigate(`/receipts/${receipt.reference}`)
+        navigate(`/receipts/${encodeURIComponent(receipt.reference)}`)
       } else {
-        await api.put(`/operations/${id}`, payload)
+        await api.put(`/operations/${encodeURIComponent(operationRef)}`, payload)
         toast.success('Receipt updated')
       }
     } catch (err) {
@@ -89,7 +101,7 @@ export default function ReceiptDetailPage() {
     if (!window.confirm('Validate this receipt? Stock will be updated.')) return
     setSaving(true)
     try {
-      await api.post(`/operations/${id}/validate`)
+      await api.post(`/operations/${encodeURIComponent(operationRef)}/validate`)
       const { data: prodData } = await api.get('/products')
       if (prodData) setProducts(prodData)
       setReceipt((r) => ({ ...r, status: 'done' }))
@@ -105,7 +117,7 @@ export default function ReceiptDetailPage() {
     if (isNew) { toast.warning('Save the receipt before canceling'); return }
     if (!window.confirm('Cancel this receipt?')) return
     try {
-      await api.post(`/operations/${id}/cancel`)
+      await api.post(`/operations/${encodeURIComponent(operationRef)}/cancel`)
       setReceipt((r) => ({ ...r, status: 'canceled' }))
       toast.info('Receipt canceled')
     } catch (err) {

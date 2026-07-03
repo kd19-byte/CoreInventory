@@ -23,14 +23,16 @@ import { TransfersPage, TransferDetailPage } from '@/pages/transfers/TransfersPa
 import AdjustmentsPage    from '@/pages/adjustments/AdjustmentsPage'
 import HistoryPage        from '@/pages/history/HistoryPage'
 import SettingsPage       from '@/pages/settings/SettingsPage'
+import SmartStacksPage    from '@/pages/stacks/SmartStacksPage'
+import LandingPage        from '@/pages/landing/LandingPage'
 
 export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
         <Routes>
-          {/* ── Root redirect ─────────────────────────── */}
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          {/* ── Public landing route ───────────────────── */}
+          <Route path="/" element={<LandingPage />} />
 
           {/* ── Public auth routes ─────────────────────────── */}
           <Route path="/auth/login"          element={<LoginPage />} />
@@ -46,6 +48,7 @@ export default function App() {
               {/* Products */}
               <Route path="/products"          element={<ProductsPage />} />
               <Route path="/products/:id"      element={<ProductDetailPage />} />
+              <Route path="/stacks"            element={<SmartStacksPage />} />
 
               {/* Receipts */}
               <Route path="/receipts"          element={<ReceiptsPage />} />
@@ -73,7 +76,7 @@ export default function App() {
           </Route>
 
           {/* Catch-all */}
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>

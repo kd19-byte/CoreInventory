@@ -27,6 +27,7 @@ import { generateRef } from '@/utils'
 
 export function TransferDetailPage() {
   const { id } = useParams(); const isNew = id === 'new'
+  const operationRef = isNew ? '' : decodeURIComponent(id)
   const navigate = useNavigate()
   const { locations, products, setProducts } = useInventoryStore()
   const toast = useToast()
@@ -39,7 +40,7 @@ export function TransferDetailPage() {
 
   useEffect(() => {
     if (!isNew) {
-      api.get(`/operations/${id}`).then(({ header, items }) => {
+      api.get(`/operations/${encodeURIComponent(operationRef)}`).then(({ header, items }) => {
         const item = items?.[0]
         setForm({
           reference: header.ref,
@@ -51,7 +52,7 @@ export function TransferDetailPage() {
         })
       }).catch((err) => toast.error('Failed to load', err.message))
     }
-  }, [id, isNew])
+  }, [id, isNew, operationRef])
 
   const set = (field, val) => setForm((f) => ({ ...f, [field]: val }))
 
@@ -59,7 +60,7 @@ export function TransferDetailPage() {
     if (isNew) { toast.warning('Save the transfer before validating'); return }
     setSaving(true)
     try {
-      await api.post(`/operations/${id}/validate`)
+      await api.post(`/operations/${encodeURIComponent(operationRef)}/validate`)
       const { data: prodData } = await api.get('/products')
       if (prodData) setProducts(prodData)
       toast.success('Transfer validated')
@@ -84,9 +85,9 @@ export function TransferDetailPage() {
       }
       if (isNew) {
         await api.post('/operations', payload)
-        toast.success('Transfer saved'); navigate(`/transfers/${form.reference}`)
+        toast.success('Transfer saved'); navigate(`/transfers/${encodeURIComponent(form.reference)}`)
       } else {
-        await api.put(`/operations/${id}`, payload)
+        await api.put(`/operations/${encodeURIComponent(operationRef)}`, payload)
         toast.success('Transfer updated')
       }
     } catch (err) {

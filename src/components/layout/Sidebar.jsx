@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Package, ArrowDownToLine, ArrowUpFromLine,
   ArrowLeftRight, ClipboardList, History, Settings, LogOut,
-  Boxes, ChevronDown
+  Boxes, ChevronDown, Layers
 } from 'lucide-react'
 import { useAuth } from '@/lib/AuthContext'
 import { useWarehouseStore, useInventoryStore } from '@/store'
@@ -12,6 +12,7 @@ import { useState } from 'react'
 const NAV = [
   { to: '/dashboard',    label: 'Dashboard',    icon: LayoutDashboard },
   { to: '/products',     label: 'Products',     icon: Package },
+  { to: '/stacks',       label: 'Smart Stacks', icon: Layers },
   {
     label: 'Operations', icon: ClipboardList, children: [
       { to: '/receipts',   label: 'Receipts',   icon: ArrowDownToLine },

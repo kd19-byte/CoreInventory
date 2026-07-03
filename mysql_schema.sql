@@ -178,3 +178,18 @@ CREATE TABLE consumption_log (
     FOREIGN KEY (product_id) REFERENCES products(id),
     FOREIGN KEY (location_id) REFERENCES locations(id)
 );
+
+-- Table 13: consumption_events (per validated outgoing move)
+CREATE TABLE consumption_events (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    move_id INT NOT NULL UNIQUE,
+    product_id INT NOT NULL,
+    location_id INT NOT NULL,
+    qty_out DECIMAL(10,2) NOT NULL,
+    move_date DATE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_consumption_events_lookup (product_id, location_id, move_date),
+    FOREIGN KEY (move_id) REFERENCES stock_moves(id) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES products(id),
+    FOREIGN KEY (location_id) REFERENCES locations(id)
+);

@@ -6,6 +6,7 @@ import { useInventoryStore } from '@/store'
 const TITLES = {
   '/dashboard':    'Dashboard',
   '/products':     'Products',
+  '/stacks':       'Smart Stacks',
   '/receipts':     'Receipts',
   '/delivery':     'Delivery Orders',
   '/transfers':    'Internal Transfers',

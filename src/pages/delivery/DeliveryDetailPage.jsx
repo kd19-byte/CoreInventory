@@ -14,6 +14,7 @@ const STATUS_FLOW = ['draft', 'ready', 'done']
 export default function DeliveryDetailPage() {
   const { id }   = useParams()
   const isNew    = id === 'new'
+  const operationRef = isNew ? '' : decodeURIComponent(id)
   const navigate = useNavigate()
   const { locations, products, setProducts } = useInventoryStore()
   const toast = useToast()
@@ -30,7 +31,7 @@ export default function DeliveryDetailPage() {
     if (isNew) return
     const load = async () => {
       try {
-        const { header, items: loadedItems } = await api.get(`/operations/${id}`)
+        const { header, items: loadedItems } = await api.get(`/operations/${encodeURIComponent(operationRef)}`)
         setDelivery({
           reference: header.ref,
           customer: header.customer ?? '',
@@ -46,7 +47,7 @@ export default function DeliveryDetailPage() {
       }
     }
     load()
-  }, [id, isNew])
+  }, [id, isNew, operationRef])
 
   const addItem    = () => setItems((p) => [...p, { product_id: '', qty: 1 }])
   const removeItem = (i) => setItems((p) => p.filter((_, idx) => idx !== i))
@@ -66,9 +67,9 @@ export default function DeliveryDetailPage() {
       if (isNew) {
         await api.post('/operations', payload)
         toast.success('Delivery saved')
-        navigate(`/delivery/${delivery.reference}`)
+        navigate(`/delivery/${encodeURIComponent(delivery.reference)}`)
       } else {
-        await api.put(`/operations/${id}`, payload)
+        await api.put(`/operations/${encodeURIComponent(operationRef)}`, payload)
         toast.success('Delivery updated')
       }
     } catch (err) {
@@ -82,7 +83,7 @@ export default function DeliveryDetailPage() {
     if (!window.confirm('Validate delivery? Stock will be deducted.')) return
     setSaving(true)
     try {
-      await api.post(`/operations/${id}/validate`)
+      await api.post(`/operations/${encodeURIComponent(operationRef)}/validate`)
       const { data: prodData } = await api.get('/products')
       if (prodData) setProducts(prodData)
       setDelivery((d) => ({ ...d, status: 'done' }))
@@ -98,7 +99,7 @@ export default function DeliveryDetailPage() {
     if (isNew) { toast.warning('Save the delivery before canceling'); return }
     if (!window.confirm('Cancel this delivery?')) return
     try {
-      await api.post(`/operations/${id}/cancel`)
+      await api.post(`/operations/${encodeURIComponent(operationRef)}/cancel`)
       setDelivery((d) => ({ ...d, status: 'canceled' }))
       toast.info('Delivery canceled')
     } catch (err) {

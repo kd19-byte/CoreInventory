@@ -92,7 +92,7 @@ export function OperationList({ type, newRoute, detailRoute, title, extraColumns
         {loading
           ? <TableSkeleton cols={columns.length} rows={7} />
           : <Table columns={columns} data={data}
-              onRowClick={(row) => navigate(`${detailRoute}/${row.id}`)}
+              onRowClick={(row) => navigate(`${detailRoute}/${encodeURIComponent(String(row.id ?? ''))}`)}
               emptyMessage={`No ${title.toLowerCase()} records found`}
             />
         }
